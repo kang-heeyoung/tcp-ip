@@ -1,0 +1,18 @@
+CC = gcc
+CFLAGS = -Wall -Werror
+
+SERVER_SRC = hw3_server.c
+CLIENT_SRC = hw3_client.c
+
+CLIENT_TARGET = client
+SERVER_TARGET = server
+
+$(SERVER_TARGET): $(SERVER_SRC)
+	$(CC) $(CFLAGS) -o $(SERVER_TARGET) $(SERVER_SRC)
+
+$(CLIENT_TARGET): $(CLIENT_SRC)
+	$(CC) $(CFLAGS) -o $(CLIENT_TARGET) $(CLIENT_SRC)
+
+
+clean:
+	rm -f $(SERVER_TARGET) $(CLIENT_TARGET)
