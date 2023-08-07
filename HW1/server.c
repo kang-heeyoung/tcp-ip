@@ -27,7 +27,7 @@ typedef struct {
 int main(int argc, char *argv[])
 {
     int serv_sock, clnt_sock; // 서버, 클라 소켓
-    char command[10], dir[BUF_SIZE], buf[BUF_SIZE], fileName[BUF_SIZE], fileInfo[BUF_SIZE];
+    char command[10], buf[BUF_SIZE], fileName[BUF_SIZE], fileInfo[BUF_SIZE];
     char clnt_fileName[BUF_SIZE], clnt_fileName_c[BUF_SIZE];
     int str_len, i;
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     {  
         error_handling("accept() error");
     }else{
-        printf("Connected client %d \n", i+1);
+        printf("Connected client\n");
     }
 
     //디렉토리 모든 정보 받아오기
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
         // fileInfo 명령어
         else if(!strcmp(command, "fileInfo\n")){
             // 파일 이름 정보 넣기
-            char s[BUF_SIZE]={0,};
+            // char s[BUF_SIZE]={0,};
             FILE* file;
             size_t fsize;
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
                 // 파일 오픈
                 file = fopen(namelist[idx]->d_name, "rb");
 
-                int isNul = 0;
+                // int isNul = 0;
                 if(file == NULL){
                     error_handling("file NULL");
                 }
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
             
             // 변수 선언 & 초기화
             FILE* file1;
-            size_t fsize1;
+            // size_t fsize1;
             int fileNum = 0;
             memset(clnt_fileName, 0, sizeof(clnt_fileName));
             memset(buf, 0, sizeof(buf));
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
                 // // 파일 데이터 읽어오기
                 
                 // 파일 전송
-                int fileSize = 0;
+                // int fileSize = 0;
                 int fpsize = 1;
                 while(1){
                     fpsize = fread(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file1);

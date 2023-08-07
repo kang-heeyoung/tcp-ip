@@ -16,7 +16,7 @@
 
 typedef struct {
    int seq;
-   unsigned long int fileSize;
+   int fileSize;
    char fileContent[BUF_SIZE];
 } Pkt;
 
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
    // int str_len;
    socklen_t clnt_adr_sz;
    FILE* file;
-   int pri_num =-1;
+   int pri_num =-2;
 
    // 구조체 변수 선언 & 초기화
    Pkt pkt;
@@ -85,13 +85,15 @@ int main(int argc, char *argv[])
    while(1)
    {
       clnt_adr_sz = sizeof(clnt_adr);
-      alarm(5);
+      alarm(10);
       str_len = recvfrom(serv_sock, &pkt, sizeof(Pkt), 0, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
       if(str_len == -1){
          error_handling("receive error()");
       }
 
       // printf("%d, %d\n", pri_num, pkt.seq);
+      // printf("%s", pkt.fileContent);
+      printf("%d", pkt.fileSize);
       if(pri_num < pkt.seq){
          if(pkt.fileSize < BUF_SIZE){
             fwrite(pkt.fileContent, 1, pkt.fileSize, file);
