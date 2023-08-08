@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #define BUF_SIZE 1024
 
@@ -18,7 +19,7 @@
 
 typedef struct {
    int seq;
-   unsigned long int fileSize;
+   int fileSize;
    char fileContent[BUF_SIZE];
 } Ack;
 
@@ -39,12 +40,14 @@ int main(int argc, char *argv[])
    socklen_t serv_adr_sz;
 
    FILE* file;
-   size_t  fsize;
+   // size_t  fsize;
 
+   int fsize = 0;
    int fpsize = 0;
    int check = 0;
 
    double start, end;
+   struct stat sb;
 
    // // 구조체 변수 선언 & 초기화
    Ack ack;
@@ -83,12 +86,18 @@ int main(int argc, char *argv[])
    }
 
    // 파일 크기 저장
-   fseek(file, 0, SEEK_END);
-   fsize = ftell(file);
-   fseek(file, 0, SEEK_SET);
-   ack.fileSize = fsize;
+   // fseek(file, 0, SEEK_END);
+   // fsize = ftell(file);
+   // fseek(file, 0, SEEK_SET);
+   // ack.fileSize = fsize;
 
    int seq_check = -1;
+
+   // 파일 크기 저장
+   if(stat(FILENAME, &sb) == -1){
+      error_handling("stat error()");
+   }
+   fsize = sb.st_size;
    
    while(1) 
    {
@@ -101,14 +110,15 @@ int main(int argc, char *argv[])
             // printf("%s\n", ack.fileContent);
             sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
             check = 1;
-         }else{
-            sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
          }
+         sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
+
          alarm(1);
          seq_check = recvfrom(sock, &ack.seq, sizeof(int), 0, (struct sockaddr*)&serv_adr, &serv_adr_sz);
          if(ack.seq == 0){
             start = clock();
          }
+         // printf("%d\n", fsize);
          printf("seq : %d, loss check: %d\n", ack.seq, seq_check);
          if(seq_check >=0){
             break;

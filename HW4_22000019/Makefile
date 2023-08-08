@@ -1,11 +1,13 @@
 CC = gcc
 CFLAGS = -Wall -Werror
 
-SERVER_SRC = hw3_server.c
-CLIENT_SRC = hw3_client.c
+SERVER_SRC = hw4_22000019_server.c
+CLIENT_SRC = hw4_22000019_client.c
 
 CLIENT_TARGET = client
 SERVER_TARGET = server
+
+all: $(SERVER_TARGET) $(CLIENT_TARGET)
 
 $(SERVER_TARGET): $(SERVER_SRC)
 	$(CC) $(CFLAGS) -o $(SERVER_TARGET) $(SERVER_SRC)

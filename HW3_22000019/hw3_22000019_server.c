@@ -18,6 +18,7 @@
 char *path =".";
 
 void error_handling(char *message);
+int dir_cnt(int cnt);
 
 typedef struct {
     unsigned int fileSize;
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
     char clnt_fileName[BUF_SIZE], clnt_fileName_c[BUF_SIZE];
     int str_len, i;
     int fileNum;
+    int send_cnt;
 
     char uploadFile_name[30] = {0};
     char uploadFile_content[BUF_SIZE];
@@ -43,9 +45,6 @@ int main(int argc, char *argv[])
     struct sockaddr_in serv_adr, clnt_adr; // 서버, 클라 소켓 주소
     struct stat sb;
     socklen_t clnt_adr_sz;
-
-    // int download_size = 0;
-    // char downloadContent[BUF_SIZE];
 
     // 구조체 포인터 (파일 정보 저장)
     FileInfo str_fileInfo[BUF_SIZE];
@@ -86,12 +85,6 @@ int main(int argc, char *argv[])
         error_handling("listen() error");
     }
 
-    // 클라-서버 연결
-    // clnt_sock=accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);    
-    // if(clnt_sock==-1)
-    // {  
-    //     error_handling("accept() error");
-    // }
 
     int cnt;
     int idx;
@@ -133,6 +126,9 @@ int main(int argc, char *argv[])
                         clnt_sock = fd_check;
                         read(clnt_sock, &cnt, sizeof(cnt));
                         cnt =0;
+                        int mode = R_OK | W_OK;
+                        send_cnt = 0;
+                        send_cnt = dir_cnt(cnt);
                         if((cnt = scandir(path, &namelist, NULL, NULL))== -1 )
                             {
                                 error_handling("Directory Scan error");
@@ -143,7 +139,7 @@ int main(int argc, char *argv[])
                         memset(str_fileInfo, 0, sizeof(str_fileInfo));
 
                         // 파일 목록 개수 보내기
-                        write(clnt_sock, &cnt, sizeof(cnt));
+                        write(clnt_sock, &send_cnt, sizeof(cnt));
 
                         // 파일 이름 및 파일 크기 보내기
                         for(idx=0; idx<cnt; idx++){
@@ -162,8 +158,12 @@ int main(int argc, char *argv[])
                             }else if(S_ISDIR(sb.st_mode)){
                                 str_fileInfo[idx].isFile = 0;
                             }
-
-                            write(clnt_sock, (char*)&str_fileInfo[idx], BUF_SIZE);
+                            if(access(str_fileInfo[idx].fileName, mode)== 0){
+                                write(clnt_sock, (char*)&str_fileInfo[idx], BUF_SIZE);
+                            }
+                            
+                            
+                            
                         }
 
 
@@ -213,7 +213,6 @@ int main(int argc, char *argv[])
                                 // // 파일 데이터 읽어오기
                                 
                                 // 파일 전송
-                                // int fileSize = 0;
                                 int fpsize = 1;
                                 while(1){
                                     fpsize = fread(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file1);
@@ -292,4 +291,20 @@ void error_handling(char *message)
     fputs(message, stderr);
     fputc('\n', stderr);
     exit(1);
+}
+
+int dir_cnt(int cnt) {
+    int i;
+    struct dirent **namelist;
+    cnt = scandir(path, &namelist, NULL, NULL);
+    i = 0;
+    int mode = R_OK | W_OK;
+    
+    for(int x=0; x<cnt; x++){
+        if(access(namelist[x]->d_name, mode) == 0){
+            i++;                 
+        }
+    }
+    // printf("i : %d\n", i);
+    return i;
 }

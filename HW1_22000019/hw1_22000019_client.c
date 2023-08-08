@@ -29,15 +29,15 @@ int main(int argc, char *argv[])
     int sock;
     char message[BUF_SIZE] = {0};
     char fileName[BUF_SIZE], buf[BUF_SIZE], fileName_c[BUF_SIZE];
-    char fileInfo[BUF_SIZE]={0};
-    char temp[5];
-    int str_len;
+    // char fileInfo[BUF_SIZE]={0};
+    // char temp[5];
+    // int str_len;
     struct sockaddr_in serv_adr;
     int fileNum = 0;
     char file_num[10] = {0};
 
     FILE* file;
-    size_t fsize;
+    // size_t fsize;
 
     FileInfo str_fileInfo[BUF_SIZE];
     // str_fileInfo = (FileInfo *) malloc(sizeof(FileInfo)*BUF_SIZE);
@@ -126,15 +126,15 @@ int main(int argc, char *argv[])
             }
 
             int byteCheck = 0;
-            int writeCheck = 0;
+            // int writeCheck = 0;
             // 파일 내용 수신
             while(byteCheck <= str_fileInfo[fileNum].fileSize){
                 read(sock, (char*)&str_fileInfo[fileNum].fileContent, BUF_SIZE);
                 
                 if(str_fileInfo[fileNum].fileSize < 1024){
-                    writeCheck = fwrite(str_fileInfo[fileNum].fileContent, 1, str_fileInfo[fileNum].fileSize, file);
+                    fwrite(str_fileInfo[fileNum].fileContent, 1, str_fileInfo[fileNum].fileSize, file);
                 }else{
-                    writeCheck = fwrite(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file);
+                    fwrite(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file);
                 }
 
                 byteCheck +=1024;
