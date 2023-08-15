@@ -1,0 +1,369 @@
+#define _XOPEN_SOURCE 200
+#define _CRT_SECURE_NO_WARNINGS
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <time.h>
+#include <signal.h>
+
+typedef struct s_RecvInfo
+{
+    int id;
+    int maxReceiving;
+    char listenIP[15];
+    char listenPort[10];
+} RecvInfo;
+
+typedef struct s_ListenInfo
+{
+    char listenPort[10];
+    int curId;
+    int maxReceiving;
+} ListenInfo;
+
+typedef struct s_ConnectInfo
+{
+    RecvInfo *recv_info_ptr;
+    int curId;
+} ConnectInfo;
+
+typedef struct s_RecvSocks
+{
+    int recv_sock;
+} RecvSocks;
+
+typedef struct s_RecvPeerSocks
+{
+    int recvPeer_sock;
+} RecvPeerSocks;
+
+void error_handling(char *message);
+int listenSocket(char *port, int maxRecv);
+int connectSocket(char *sendIP, char *port);
+void *handle_recv(void *arg);
+void *listenSocketThread(void *listen_info);
+void *connectSocketThread(void *recv_info);
+
+void timeout(int sig)
+{
+    if (sig == SIGALRM)
+    {
+        puts("Receiver End");
+    }
+    exit(1);
+}
+
+RecvSocks *recv_socks;
+RecvPeerSocks *recvPeer_socks;
+int recv_cnt = -1;
+pthread_mutex_t mutx;
+
+int main(int argc, char *argv[])
+{
+    int isSending = 0, isReceiving = 0, maxReceiving = 0, segSize = 0;
+    char fileName[30];
+    char sendIP[15], sendPort[15], listenPort[10];
+    char isComplete[14];
+
+    // getopt 함수
+    int c;
+    extern char *optarg;
+    extern int optind;
+
+    int send_sock, recv_sock;
+    struct sockaddr_in recv_adr;
+    socklen_t recv_adr_sz;
+    void *thread_return;
+    pthread_t lis_thread, con_thread;
+
+    // 알람설정
+    struct sigaction act;
+    act.sa_handler = timeout;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    sigaction(SIGALRM, &act, 0);
+
+    while ((c = getopt(argc, argv, "srn:f:g:a:p:")) != -1)
+    {
+        switch (c)
+        {
+        case 's':
+            isSending = 1;
+            break;
+        case 'r':
+            isReceiving = 1;
+            break;
+        case 'n':
+            maxReceiving = atoi(optarg);
+            break;
+        case 'f':
+            strcpy(fileName, optarg);
+            break;
+        case 'g':
+            segSize = atoi(optarg);
+            printf("%d\n", segSize);
+            break;
+        case 'a':
+            strcpy(sendIP, optarg);
+            // optind++;
+            strcpy(sendPort, argv[optind++]);
+            break;
+        case 'p':
+            strcpy(listenPort, optarg);
+            break;
+        case '?':
+            error_handling("input() error");
+            break;
+        case '-':
+            error_handling("input() error");
+            break;
+        }
+    }
+
+    // recv_info = (RecvInfo *)malloc(sizeof(RecvInfo) * maxReceiving);
+
+    if (isSending)
+    {
+        recv_socks = (RecvSocks *)malloc(sizeof(RecvSocks) * maxReceiving);
+        RecvInfo recv_info[maxReceiving];
+        memset(recv_info, 0, sizeof(recv_info));
+        pthread_mutex_init(&mutx, NULL);
+
+        send_sock = listenSocket(listenPort, maxReceiving);
+        printf("serv : %d\n", send_sock);
+        while (1)
+        {
+            alarm(10);
+            recv_cnt++;
+            if (recv_cnt == maxReceiving)
+            {
+                break;
+            }
+            recv_adr_sz = sizeof(recv_adr);
+            recv_sock = accept(send_sock, (struct sockaddr *)&recv_adr, &recv_adr_sz);
+            printf("%d\n", recv_sock);
+
+            pthread_mutex_lock(&mutx);
+            recv_socks[recv_cnt].recv_sock = recv_sock;
+            printf("%d: %d\n", recv_cnt, recv_socks[recv_cnt].recv_sock);
+            pthread_mutex_unlock(&mutx);
+            recv_info[recv_cnt].id = recv_cnt;
+            strcpy(recv_info[recv_cnt].listenIP, inet_ntoa(recv_adr.sin_addr));
+            recv_info[recv_cnt].maxReceiving = maxReceiving;
+
+            read(recv_sock, recv_info[recv_cnt].listenPort, 10);
+            // pthread_create(&t_id, NULL, handle_recv, (void*)&recv_sock);
+            // pthread_detach(t_id);
+            printf("port : %s\n", recv_info[recv_cnt].listenPort);
+            printf("Connected client IP: %s \n", inet_ntoa(recv_adr.sin_addr));
+        }
+        for (int i = 0; i < maxReceiving; i++)
+        {
+            write(recv_socks[i].recv_sock, &maxReceiving, sizeof(int));
+            write(recv_socks[i].recv_sock, &recv_info[i].id, sizeof(int));
+            write(recv_socks[i].recv_sock, recv_info, sizeof(recv_info));
+        }
+        for (int i = 0; i < maxReceiving; i++)
+        {
+            read(recv_socks[i].recv_sock, isComplete, 14);
+            printf("%d: %s\n", recv_socks[i].recv_sock, isComplete);
+        }
+        close(recv_sock);
+        close(send_sock);
+    }
+    else if (isReceiving)
+    {
+        // int cur_recv_sock;
+        int curId;
+        int maxRecv;
+        // int peerNumCheck = 0;
+        pthread_mutex_init(&mutx, NULL);
+
+        send_sock = connectSocket(sendIP, sendPort);
+        printf("recv : %d\n", send_sock);
+        write(send_sock, listenPort, 10);
+        read(send_sock, &maxRecv, sizeof(int));
+        read(send_sock, &curId, sizeof(int));
+        RecvInfo recv_info[maxRecv];
+        // int recv_peer_sock[maxReceiving - 1];
+        recvPeer_socks = (RecvPeerSocks *)malloc(sizeof(RecvPeerSocks) * maxReceiving);
+        ListenInfo listen_info;
+        ConnectInfo connect_info;
+        strcpy(listen_info.listenPort, listenPort);
+        listen_info.maxReceiving = maxRecv;
+        listen_info.curId = curId;
+
+        // for (int i = 0; i < maxReceiving; i++) {
+        //     connect_info.recv_info_ptr[i] = recv_info[i];
+        // }
+        read(send_sock, recv_info, sizeof(recv_info));
+        connect_info.recv_info_ptr = (RecvInfo *)recv_info;
+        connect_info.curId = curId;
+        for (int i = 0; i < maxReceiving; i++)
+        {
+            printf("%d %s %s\n", recv_info[i].id, recv_info[i].listenPort, recv_info[i].listenIP);
+        }
+        printf("%d\n", curId);
+
+        pthread_create(&lis_thread, NULL, listenSocketThread, (void *)&listen_info);
+        pthread_create(&con_thread, NULL, connectSocketThread, (void *)&connect_info);
+        pthread_join(lis_thread, &thread_return);
+        pthread_join(con_thread, &thread_return);
+
+        write(send_sock, "init Complete", 14);
+
+        close(send_sock);
+    }
+
+    free(recv_socks);
+    return 0;
+}
+
+void error_handling(char *message)
+{
+    fputs(message, stderr);
+    fputc('\n', stderr);
+    exit(1);
+}
+
+// send소켓 생성
+int listenSocket(char *port, int maxRecv)
+{
+    int serv_sock;
+    struct sockaddr_in serv_addr;
+    serv_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(atoi(port));
+
+    int optval = 1;
+    setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    if (bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+        error_handling("bind() error");
+
+    if (listen(serv_sock, maxRecv) == -1)
+        error_handling("listen() error");
+    printf("listen() success\n");
+    return serv_sock;
+}
+
+// recv 소켓 생성
+int connectSocket(char *sendIP, char *port)
+{
+    int sock;
+    struct sockaddr_in serv_addr;
+
+    sock = socket(PF_INET, SOCK_STREAM, 0);
+
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = inet_addr(sendIP);
+    serv_addr.sin_port = htons(atoi(port));
+
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+    {
+        perror("connect() error");
+    }
+    // error_handling("connect() error");
+
+    return sock;
+}
+
+void *listenSocketThread(void *listen_info)
+{
+    ListenInfo *listen_info_thread = (ListenInfo *)listen_info;
+    int serv_sock, cur_recv_sock;
+    struct sockaddr_in serv_addr, cur_recv_adr;
+    socklen_t cur_recv_adr_sz;
+    serv_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(atoi(listen_info_thread->listenPort));
+
+    int optval = 1;
+    setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    if (bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+        error_handling("bind() error");
+
+    if (listen(serv_sock, listen_info_thread->maxReceiving) == -1)
+        error_handling("listen() error");
+    printf("listen() success\n");
+    printf("sock1 : %d\n", serv_sock);
+    recvPeer_socks[listen_info_thread->curId].recvPeer_sock = serv_sock;
+    printf("sock:%d\n", recvPeer_socks[listen_info_thread->curId].recvPeer_sock);
+
+    for (int i = 0; i < listen_info_thread->maxReceiving; i++)
+    {
+        if (i == listen_info_thread->curId)
+        {
+            continue;
+        }
+        else if (i < listen_info_thread->curId)
+        {
+            cur_recv_adr_sz = sizeof(cur_recv_adr);
+            cur_recv_sock = accept(serv_sock, (struct sockaddr *)&cur_recv_adr, &cur_recv_adr_sz);
+            printf("cur_recv_sock1 : %d\n", cur_recv_sock);
+        }
+        // else {
+        //     recv_peer_sock[i] = connectSocket(recv_info[i].listenIP, recv_info[i].listenPort);
+        // }
+    }
+    return NULL;
+}
+
+void *connectSocketThread(void *connect_info)
+{
+    ConnectInfo *connect_info_thread = (ConnectInfo *)connect_info;
+    int connect_sock;
+    sleep(1);
+    // printf("ip %s\n", connect_info_thread->recv_info_ptr->listenPort);
+    for (int i = 0; i < connect_info_thread->recv_info_ptr->maxReceiving; i++)
+    {
+        if (i > connect_info_thread->curId)
+        {
+            connect_sock = connectSocket(connect_info_thread->recv_info_ptr[i].listenIP, connect_info_thread->recv_info_ptr[i].listenPort);
+            printf("cur_recv_sock2 : %d\n", connect_sock);
+            recvPeer_socks[connect_info_thread->curId].recvPeer_sock = connect_sock;
+            // connect_info_thread->sock = connect_sock;
+        }
+        // else {
+        //     recv_peer_sock[i] = connectSocket(recv_info[i].listenIP, recv_info[i].listenPort);
+        // }
+    }
+
+    // if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
+    //     perror("connect() error");
+    // }
+    // error_handling("connect() error");
+
+    return NULL;
+}
+
+void *handle_recv(void *arg)
+{
+    // int recv_sock = *((int*)arg);
+    // char listen_port[10];
+    // int i;
+    // for(i=0; i<recv_cnt;i++){
+    //     if(recv_sock == recv_socks[i].recv_sock){
+    //         break;
+    //     }
+    // }
+    // read(recv_sock, listen_port, 10);
+    // strcpy(recv_info[i].listenPort, listen_port);
+    printf("hi\n");
+
+    return NULL;
+}

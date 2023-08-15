@@ -14,7 +14,7 @@
 
 #define BUF_SIZE 1024
 
-#define FILENAME "desktop.jpg"
+#define FILENAME "sender" // 테스트 시 파일 이름 바꿔야 합니다..!
 
 
 typedef struct {
@@ -110,9 +110,9 @@ int main(int argc, char *argv[])
             // printf("%s\n", ack.fileContent);
             sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
             check = 1;
+         }else{
+            sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
          }
-         sendto(sock, &ack, sizeof(Ack), 0, (struct sockaddr*)&serv_adr, serv_adr_sz);
-
          alarm(1);
          seq_check = recvfrom(sock, &ack.seq, sizeof(int), 0, (struct sockaddr*)&serv_adr, &serv_adr_sz);
          if(ack.seq == 0){

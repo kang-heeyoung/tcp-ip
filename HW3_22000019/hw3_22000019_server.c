@@ -182,6 +182,7 @@ int main(int argc, char *argv[])
                             FD_CLR(fd_check,&reads);
                             close(fd_check);
                             exit(0);
+                        // download 명령어
                         }else if(!strcmp(command, "download\n")){ 
                             
                             // 변수 선언 & 초기화
@@ -224,7 +225,7 @@ int main(int argc, char *argv[])
                                 }
                                 fclose(file1);
                             }
-
+                        // cd 명령어
                         }else if(!strcmp(command, "cd\n")){
                             fileNum = 0;
                             read(clnt_sock, &fileNum, sizeof(int));
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
                             if(ch !=0){
                                 error_handling("change directory error");
                             }
-
+                        // upload 명령어
                         }else if(!strcmp(command, "upload\n")){
                             memset(uploadFile_content, 0, sizeof(uploadFile_content));
                             memset(uploadFile_name, 0, sizeof(uploadFile_name));
@@ -246,25 +247,43 @@ int main(int argc, char *argv[])
                             uploadFile_fd = fopen(uploadFile_name, "wb");
 
                             if(uploadFile_fd == NULL){
-                                fputs("파일 업로드 오류", stderr);
-                                fputc('\n', stderr);
+                                error_handling("file upload error");
                                 continue;
                             }
 
                             int byteCheck =0;
+                            int lastFile = 0;
+                            int readCheck = 0;
 
-                            while(byteCheck <= uploadFile_size){
-                                read(clnt_sock, uploadFile_content, BUF_SIZE);
+                            while(1){
+                                readCheck = 0;
+                                if(byteCheck + 1024 > uploadFile_size){
+                                    lastFile = uploadFile_size - byteCheck;
+                                    readCheck = recv(clnt_sock, uploadFile_content, lastFile, MSG_PEEK);
+                                    while(readCheck < lastFile){
+                                        readCheck = recv(clnt_sock, uploadFile_content, lastFile, MSG_PEEK);
+                                    }
+                                    readCheck = read(clnt_sock, uploadFile_content, lastFile);
+                                }else{
+                                    readCheck = recv(clnt_sock, uploadFile_content, BUF_SIZE, MSG_PEEK);
+                                    while(readCheck < BUF_SIZE){
+                                        readCheck = recv(clnt_sock, uploadFile_content, BUF_SIZE, MSG_PEEK);
+                                    }
+                                    readCheck = read(clnt_sock, uploadFile_content, BUF_SIZE);
+                                }
 
-                                if(uploadFile_size < BUF_SIZE){
-                                    fwrite(uploadFile_content, 1, uploadFile_size, uploadFile_fd);
+                                if(readCheck < BUF_SIZE){
+                                    fwrite(uploadFile_content, 1, readCheck, uploadFile_fd);
+                                    printf("last : %d, %d, %d\n", readCheck, byteCheck, uploadFile_size);
+                                    break;
                                 }else{
                                     fwrite(uploadFile_content, 1, BUF_SIZE, uploadFile_fd);
+                                    printf("%d, %d, %d\n", readCheck, byteCheck, uploadFile_size);
                                 }
                                 byteCheck+=1024;
                             }
                             fclose(uploadFile_fd);
-                            printf("업로드가 완료되었습니다.");
+                            printf("업로드가 완료되었습니다.\n");
                         }else{
                             pause();
                         }

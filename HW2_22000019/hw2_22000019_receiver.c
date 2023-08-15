@@ -12,7 +12,7 @@
 
 #define BUF_SIZE 1024
 
-#define FILENAME "desktop.jpg"
+#define FILENAME "sender" // 테스트 시 파일 이름 바꿔야 합니다..!
 
 typedef struct {
    int seq;
@@ -93,7 +93,6 @@ int main(int argc, char *argv[])
 
       // printf("%d, %d\n", pri_num, pkt.seq);
       // printf("%s", pkt.fileContent);
-      printf("%d", pkt.fileSize);
       if(pri_num < pkt.seq){
          if(pkt.fileSize < BUF_SIZE){
             fwrite(pkt.fileContent, 1, pkt.fileSize, file);

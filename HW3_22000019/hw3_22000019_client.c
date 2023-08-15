@@ -240,15 +240,18 @@ int main(int argc, char *argv[])
                 fputs("파일이 없습니다.", stderr);
                 fputc('\n', stderr);
             }
+            int fileSizeCheck = 0;
 
             while(1){
                 fpsize = fread(uploadContent, 1, BUF_SIZE, upload_file);
-                write(sock, uploadContent, BUF_SIZE);
+                write(sock, uploadContent, fpsize);
 
-                if(fpsize < 1024){
+                if(fileSizeCheck == upload_size){
                     printf("파일 전송이 완료되었습니다.\n");
                     break;
                 }
+                fileSizeCheck += fpsize;
+                printf("%d, %d\n", fpsize, upload_size);
             }
             fclose(upload_file);
         }

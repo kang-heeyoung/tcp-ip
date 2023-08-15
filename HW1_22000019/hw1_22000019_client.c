@@ -18,9 +18,8 @@
 void error_handling(char *message);
 
 typedef struct {
-    unsigned long int fileSize;
-    char fileName[BUF_SIZE];
-    char fileContent[BUF_SIZE];
+    int fileSize;
+    char fileName[30];
 } FileInfo;
 
 
@@ -29,6 +28,8 @@ int main(int argc, char *argv[])
     int sock;
     char message[BUF_SIZE] = {0};
     char fileName[BUF_SIZE], buf[BUF_SIZE], fileName_c[BUF_SIZE];
+    char fileContent[BUF_SIZE];
+    // char s[BUF_SIZE]={0};
     // char fileInfo[BUF_SIZE]={0};
     // char temp[5];
     // int str_len;
@@ -40,8 +41,11 @@ int main(int argc, char *argv[])
     // size_t fsize;
 
     FileInfo str_fileInfo[BUF_SIZE];
+    // FileInfo str_fileInfoCheck[BUF_SIZE];
     // str_fileInfo = (FileInfo *) malloc(sizeof(FileInfo)*BUF_SIZE);
 
+
+    // memset(str_fileInfoCheck[BUF_SIZE], 0, sizeof(str_fileInfoCheck[BUF_SIZE]));
     if(argc!=3)
     {
         printf("Usage : %s <IP> <port>\n", argv[0]);
@@ -113,7 +117,7 @@ int main(int argc, char *argv[])
             // int fileSize = 0;
             // // 파일 크기 수신
             // read(sock, &fileNum, sizeof(int));
-            printf("파일 크기 %ld\n", str_fileInfo[fileNum].fileSize);
+            printf("파일 크기 %d\n", str_fileInfo[fileNum].fileSize);
 
             // 파일 오픈 & 생성오류 체크
             strcat(fileName_c, str_fileInfo[fileNum].fileName);
@@ -127,35 +131,60 @@ int main(int argc, char *argv[])
 
             int byteCheck = 0;
             // int writeCheck = 0;
+            int readCheck = 0;
+            int lastFile = 0;
             // 파일 내용 수신
-            while(byteCheck <= str_fileInfo[fileNum].fileSize){
-                read(sock, (char*)&str_fileInfo[fileNum].fileContent, BUF_SIZE);
-                
-                if(str_fileInfo[fileNum].fileSize < 1024){
-                    fwrite(str_fileInfo[fileNum].fileContent, 1, str_fileInfo[fileNum].fileSize, file);
-                }else{
-                    fwrite(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file);
-                }
+            while(1){
+                memset(fileContent, 0, sizeof(fileContent));
+                if(byteCheck + 1024 > str_fileInfo[fileNum].fileSize){
+                    lastFile = str_fileInfo[fileNum].fileSize - byteCheck;
+                    readCheck=recv(sock, fileContent, lastFile, MSG_PEEK);
 
+                    while(readCheck < lastFile){
+                        readCheck=recv(sock, fileContent, lastFile,MSG_PEEK);
+                    }
+                    readCheck = read(sock, fileContent, lastFile);
+                }else{
+                    readCheck = recv(sock, fileContent, BUF_SIZE, MSG_PEEK);
+                    // printf("%s\n", str_fileInfo[fileNum].fileContent);
+                    
+                    while(readCheck < BUF_SIZE){
+                        readCheck = recv(sock, fileContent, BUF_SIZE, MSG_PEEK);
+                    }
+                    readCheck = read(sock, fileContent, BUF_SIZE);
+                }
+                
+                if(readCheck < 1024){
+                    byteCheck += lastFile;
+                    fwrite(fileContent, 1, lastFile, file);
+                    printf("fileSize check : %d, %d\n", byteCheck, str_fileInfo[fileNum].fileSize);
+                    break;
+                }else{
+                    fwrite(fileContent, 1, BUF_SIZE, file);
+                }
                 byteCheck +=1024;
+                printf("fileSize check : %d, %d\n", byteCheck, str_fileInfo[fileNum].fileSize);
+                if(byteCheck > str_fileInfo[fileNum].fileSize){
+                    printf("%d %d\n",byteCheck, str_fileInfo[fileNum].fileSize);
+                    break;
+                }
                 // fprintf(file, buf);
             }
             fclose(file);
-            printf("다운로드가 완료되었습니다.");
+            printf("다운로드가 완료되었습니다.\n");
         }else if(!strcmp(message, "fileInfo\n")){
             //서버와 값 주고받기
             write(sock, message, strlen(message));
 
             int cnt=0;
             read(sock, &cnt, sizeof(int));
-            printf("%d\n", cnt);
+            // printf("%d\n", cnt);
 
             printf("[폴더 내 파일 정보 & 크기]\n");
             for(int i=0; i<cnt; i++){
-                read(sock, (char*)&str_fileInfo[i], BUF_SIZE);
-                printf("[%d] : 파일이름 : %s, 파일크기 : %ld\n", i, str_fileInfo[i].fileName, str_fileInfo[i].fileSize);
+                read(sock, &str_fileInfo[i], sizeof(str_fileInfo[i]));
+                printf("[%d] : 파일이름 : %s, 파일크기 : %d\n", i, str_fileInfo[i].fileName, str_fileInfo[i].fileSize);
             }
-
             // str_len=read(sock, fileInfo, BUF_SIZE-1);
             // fileInfo[str_len]=0;
             // printf("[폴더 내 파일 정보 & 크기]\n%s", fileInfo);

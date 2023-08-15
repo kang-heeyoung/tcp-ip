@@ -18,9 +18,8 @@ const char *path =".";
 void error_handling(char *message);
 
 typedef struct {
-    unsigned long int fileSize;
-    char fileName[100];
-    char fileContent[BUF_SIZE];
+    int fileSize;
+    char fileName[30];
 } FileInfo;
 
 
@@ -38,6 +37,8 @@ int main(int argc, char *argv[])
     // 구조체 포인터 (파일 정보 저장)
     FileInfo str_fileInfo[BUF_SIZE];
     FileInfo* ptr_fileInfo;
+
+    char fileContent[BUF_SIZE];
 
     if(argc !=2)
     {
@@ -75,8 +76,6 @@ int main(int argc, char *argv[])
     if(clnt_sock==-1)
     {  
         error_handling("accept() error");
-    }else{
-        printf("Connected client\n");
     }
 
     //디렉토리 모든 정보 받아오기
@@ -148,7 +147,7 @@ int main(int argc, char *argv[])
 
                 str_fileInfo[idx].fileSize = fsize;
                  // 파일 정보 보내기
-                write(clnt_sock, (char*)&str_fileInfo[idx], BUF_SIZE);
+                write(clnt_sock, &str_fileInfo[idx], sizeof(str_fileInfo[idx]));
             }
            
             // write(clnt_sock, &cnt, sizeof(cnt));
@@ -159,11 +158,13 @@ int main(int argc, char *argv[])
             // 변수 선언 & 초기화
             FILE* file1;
             // size_t fsize1;
+            
             int fileNum = 0;
             memset(clnt_fileName, 0, sizeof(clnt_fileName));
             memset(buf, 0, sizeof(buf));
             memset(clnt_fileName_c, 0, sizeof(clnt_fileName_c));
-            
+            memset(fileContent, 0, sizeof(fileContent));
+
             // 파일 번호 받아오기 
             read(clnt_sock, &fileNum, sizeof(int));
 
@@ -188,12 +189,15 @@ int main(int argc, char *argv[])
                 // int fileSize = 0;
                 int fpsize = 1;
                 while(1){
-                    fpsize = fread(str_fileInfo[fileNum].fileContent, 1, BUF_SIZE, file1);
-                    write(clnt_sock, str_fileInfo[fileNum].fileContent, BUF_SIZE);
-                    // fileSize += fpsize;
+                    fpsize = fread(fileContent, 1, BUF_SIZE, file1);
                     if(fpsize < 1024){
+                        write(clnt_sock, fileContent, fpsize);
                         break;
+                    }else{
+                        write(clnt_sock, fileContent, BUF_SIZE);
                     }
+                    // fileSize += fpsize;
+                    
                 }
                 fclose(file1);
             }
